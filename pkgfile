@@ -1,0 +1,34 @@
+#! /bin/bash
+
+PKG_name="s3.sh"
+
+declare -a PKG_dependencies
+PKG_dependencies=(sed, grep, ping, python3)
+
+declare -A PKG_distro_include
+PKG_distro_include["Debian"]="yes"
+PKG_distro_include["Arch"]="yes"
+PKG_distro_include["RedHat"]="yes"
+PKG_distro_include["openSUSE"]="yes"
+
+declare -A PKG_distro_package_name
+PKG_distro_package_name["Debian","sed"]="sed"
+PKG_distro_package_name["Arch","sed"]="sed"
+PKG_distro_package_name["RedHat","sed"]="sed"
+PKG_distro_package_name["openSUSE","sed"]="sed"
+
+PKG_distro_package_name["Debian","grep"]="grep"
+PKG_distro_package_name["Arch","grep"]="grep"
+PKG_distro_package_name["RedHat","grep"]="grep"
+PKG_distro_package_name["openSUSE","grep"]="grep"
+
+PKG_distro_package_name["Debian","ping"]="iputils-ping"
+PKG_distro_package_name["Arch","ping"]="inetutils"
+PKG_distro_package_name["RedHat","ping"]="iputils"
+PKG_distro_package_name["openSUSE","ping"]="iputils"
+
+PKG_distro_package_name["Debian","python3"]="python"
+PKG_distro_package_name["Arch","python3"]="python"
+PKG_distro_package_name["RedHat","python3"]="python"
+PKG_distro_package_name["openSUSE","python3"]="python"
+

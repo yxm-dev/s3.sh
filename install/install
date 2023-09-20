@@ -1,0 +1,161 @@
+#! /bin/bash
+
+# including the pkgfile
+    pkgfile_dir=$(cd ../ && pwd)
+    source $pkgfile_dir/pkgfile
+    source $pkgfile_dir/config/package_manager
+
+# auxiliary function: identifying the package manager
+    function PKG_package_manager_check(){
+        printf "Identifying the package manager...\n"
+        apt=$(which apt 2>/dev/null)
+        pacman=$(which pacman 2>/dev/null)
+        dnf=$(which dnf 2>/dev/null)
+        zypper=$(which zypper 2>/dev/null)
+        if [[ -n $apt ]]; then
+            echo "\"apt\" package manager was identified. Probably you are using a Debian based distro..."
+            package_manager_is="apt"
+        elif [[ -n $pacman ]]; then
+            echo "\"pacman\" package manager was identified. Probably you are using a Arch Linux based distro..."
+            package_manager_is="pacman"
+        elif [[ -n $dnf ]]; then
+            echo "\"dnf\" package manager was identified. Probably you are using a Red Hat based distro..."
+            package_manager_is="dnf"
+        elif [[ -n $zypper ]]; then
+            echo "\"zypper\" package manager was identified. Probably you are using a SUSE based distro..."
+            package_manager_is="zypper"
+        else 
+            echo "A package manager was not identified. If missing, the dependencies must be installed manually."
+            package_manager_is=""
+        fi
+    }
+# auxiliary function: checking for basic dependencies
+    function PKG_basic_dependencies_check(){
+    declare -A PKG_missing_dependencies 
+    for dependency in ${PKG_dependencies[@]}; do
+        echo "Checking for \"$dependency\"..."
+        if [[ -x "$(command -v $dependency)" ]] ||
+           [[ -x "$(command -h $dependency)" ]]; then
+            printf "Ok...\n" 
+        else
+            echo -e -n "Dependency \"$dependency\" is missing...\n"
+            PKG_basic_missing_dependencies[$dependency]="$dependency"
+        fi
+    done
+   }
+# auxiliary function: installing basic dependencies
+    function PKG_installing_basic_dependencies(){
+        if [[ -z ${PKG_missing_dependencies[@]} ]]; then
+            echo "All basic dependencies are already installed..."
+        else 
+            printf "\nInstalling missing basic dependencies...\n"
+            for dependency in ${PKG_missing_dependencies[@]}; do
+                echo "Installing dependency \"$dependency\"...\n"
+                if [[ ! "${PKG_distro_package_name[$PKG_distro_name,$dependency]}" == "" ]]; then
+                    command ${PKG_package_manager_install[$PKG_distro_name]} ${PKG_distro_package_name[$PKG_distro_name,$dependency]}
+                    if [[ -x "$(command -v ${PKG_distro_package_name[$PKG_distro_name,$dependency]})" ]]; then
+                        echo "Dependency \"$dependency\" has been installed..."
+                    else
+                        echo "error: Dependency \"$dependency\" has NOT been installed..."
+                        exit 1
+                    fi
+                else
+                    command ${PKG_distros_install_commands[$PKG_distro_name]} $dependency
+                    if [[ -x "$(command -v $dependency)" ]]; then
+                        echo "Dependency \"$dependency\" has been installed..."
+                    else
+                        echo "error: Dependency \"$dependency\" has NOT been installed..."
+                        exit 1
+                    fi
+                fi
+            done
+        fi 
+    }
+# auxiliary function: installing custom dependencies
+    function PKG_installing_custom_dependencies(){
+        if [[ -f "./pkgfilecd" ]]; then
+            eval "$(cat pkgfilecd)"
+        fi
+    }
+# auxiliary function: installing the package
+    function PKG_installing_package(){
+        if [[ -f "$PKG_install_dir/$PKG_name" ]]; then
+            echo "error: There already exists a file \"$PKG_install_dir/$PKG_name\". Change the package name in the pkgfile."
+            exit 1
+        elif [[ -d "$PKG_install_dir/$PKG_name" ]]; then
+            echo "error: There already exists a directory \"$PKG_install_dir/$PKG_name\". Change the package name in the pkgfile."
+            exit 1
+        else
+            PKG_starting_dir=$(cd ../ && pwd)
+            echo "Copying the files from \"$PKG_starting_dir\" to \"$PKG_install_dir\"..."
+            sudo cp -r $PKG_starting_dir $PKG_install_dir
+    
+            echo "Configuring \"$PKG_name.sh\" file..."
+            sed -i "s/PKG_name/$PKG_name/g" ${PKG_install_dir}/${PKG_name}
+            
+            echo "Configuring the help.txt file..."
+            sed -i "s/PKG_name/$PKG_name/g" ${PKG_install_dir}/config/help.txt
+
+            echo "Concluding the installation..."
+            printf "if [[ -f $PKG_install_dir/$PKG_name ]]; then \nsource $PKG_install_dir/$PKG_name \nfi\n" >> $HOME/.bashrc
+        fi
+    }
+# auxiliary function: custom installation steps
+    function PKG_installing_custom_steps(){
+        if [[ -f "./pkgfileci" ]]; then
+            eval "$(cat pkgfileci)"
+        fi
+    }
+
+# INSTALLATION SCRIPT
+    printf "Welcome to the installation of the package \"$PKG_name\". \n\n"
+    if [[ -z "$PKG_install_dir" ]]; then
+        echo "error: Installation directory not defined. Please, execute \"./configure\" first."
+    else
+## identifying the package manager
+        PKG_package_manager_check
+## checking if it is in the pkgfile
+        for distro in "${PKG_package_manager_distros[@]}"; do
+            var=${PKG_distros_package_manager[$distro]}
+            if ([[ "${PKG_distro_include[${distro}]}" == "yes" ]] ||
+               [[ "${PKG_distro_include[${distro}]}" == "Y" ]] ||
+               [[ "${PKG_distro_include[${distro}]}" == "YES" ]] ||
+               [[ "${PKG_distro_include[${distro}]}" == "Y" ]] ||
+               [[ "${PKG_distro_include[${distro}]}" == "Y" ]] ||
+               [[ "${PKG_distro_include[${distro}]}" == "" ]]) &&
+               [[ "$var" == "$package_manager_is" ]]; then
+                PKG_distro_name="${distro}"
+                break
+            else 
+                PKG_distro_name=""
+            fi
+        done
+        if [[ -z $PKG_distro_name ]]; then
+            var=${PKG_package_manager_distros[$package_manager_is]}
+            printf "\"$var\" based distributions are not configured in the pkgfile. If missing, the dependencies for them must be installed manually.\n"
+## checking for dependencies
+            echo "Checking for dependencies..."
+            PKG_basic_dependencies_check
+            if [[ -z ${PKG_missing_dependencies[@]} ]]; then
+                echo "There is none missing dependency..."
+                echo "Continuing with the installation..."
+                PKG_installing_package
+            else
+                echo -e -n "error: The following dependences are missing and must be installed manually before the installation of \"$PKG_name\":\n"
+                for dependency in ${PKG_missing_dependencies[@]}; do
+                    printf "* $dependency"
+                done
+                exit 1
+            fi
+        else
+## installing dependencies
+            echo "\"$distro_name\" based distributions identified in the pkgfile..."
+            PKG_installing_basic_dependencies
+            PKG_installing_custom_dependencies
+## installing the package
+            PKG_installing_custom_steps
+            PKG_installing_package
+            printf "\nThe installation of the package \"$PKG_name\"  was finished:\n* Try \"$PKG_name --help\" to get more information on its usage.\n* To uninstall it use \"$PKG_name --uninstall\" or execute the script \"$installdir/install/uninstall\".\n"
+        fi
+    fi
+

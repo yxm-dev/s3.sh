@@ -1,0 +1,24 @@
+usage: s3.sh [options] [arguments] (general case)
+   or: s3.sh                       (print this help message)
+
+options:
+    -c, --create                      create a bucket
+    -d, --delete                      delete a bucket
+    -l, --list                        list the existing buckets w/ their directories
+        -b, --bucket                  list the existing buckets w/ their directories  
+        -r, --region                  list the available regions
+    -b, --bucket
+        -d, --dir                     set the bucket directory
+        -l, --list                    list the existing buckets w/ their directories
+        -ps, --push                   push the bucket directory to AWS
+        -pl, --pull                   pull the bucket from AWS to its directory
+        -w, --website                 create a website directory for the bucket and
+                                                                    [make it public
+    -r, --region
+        -l, --list                    list the available regions
+        -t, --test                    test the regions and output that with smallest
+                                                                            [latency
+        -s, --set                     set the default region
+    --set-region                      set the default region
+    -h, --help                        display this help message
+    -u, --uninstall                   uninstall s3.sh

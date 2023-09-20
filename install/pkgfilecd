@@ -1,0 +1,9 @@
+echo "Checking for custom dependency aws-cli..."
+if [[ -x aws-cli ]]; then 
+    echo "ok..."
+else
+    echo echo "Installing custom dependency aws-cli..."
+fi
+
+sudo python -m pip install awscli
+

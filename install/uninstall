@@ -1,0 +1,56 @@
+#! /bin/bash
+
+# including the pkgfile
+    pkgfile_dir=$(cd ../ && pwd)
+    source $pkgfile_dir/pkgfile
+    source $pkgfile_dir/config/package_manager
+     
+# UNINSTALL SCRIPT
+    echo "Welcome to the uninstall of the package \"$PKG_name\"."
+
+    if [[ ! -d $PKG_install_dir ]]; then
+        echo "The application \"$PKG_name\" is not installed."
+    else
+        while :
+        do
+            echo "Are you sure to remove \"$PKG_name\"?"
+            read -e -p "> " remove_package
+            if [[ "$remove_package" == "y" ]] || [[ "$remove_package" == "yes" ]] ||
+            [[ "$remove_package" == "Y" ]] || [[ "$remove_package" == "YES" ]]; then
+            
+            while :
+            do
+                echo "Remove dependencies?"
+                read -e -p "> " remove_dependencies
+                if [[ "$remove_dependencies" == "y" ]] || [[ "$remove_dependencies" == "yes" ]] ||
+                   [[ "$remove_dependencies" == "Y" ]] || [[ "$remove_dependencies" == "YES" ]]; then
+                    for dependency in ${PKG_missing_dependencies[@]}; do
+                        echo "Uninstalling dependency \"$dependency\"..."
+                        command ${PKG_distros_uninstall_commands[$PKG_distro_name]} ${PKG_distro_package_name[$PKG_distro_name,$dependency]}
+                        echo "Done."
+                    done
+                    break
+                elif [[ "$remove_dependencies" == "n" ]] || [[ "$remove_dependencies" == "no" ]] ||
+                     [[ "$remove_dependencies" == "N" ]] || [[ "$remove_dependencies" == "NO" ]]; then
+                        echo "Depencies will not be removed..."
+                        break
+                fi
+                echo "Please, write \"y/yes\" or \"n/no\"."
+                continue
+            done
+
+            echo "Uninstalling \"$PKG_name\"..."
+            rm -r $PKG_install_dir
+            echo -e -n "Optionally, go to your \"~/.bashrc\" file and delete the following lines:\n---\nif [[ -f $PKG_install_dir/$PKG_name.sh ]]; then \n    source $PKG_install_dir/$PKG_name.sh \nfi\n---\n"
+            echo "Uninstalling has been finished."
+            break
+
+        elif [[ "$remove_package" == "n" ]] || [[ "$remove_package" == "no" ]] ||
+             [[ "$remove_package" == "N" ]] || [[ "$remove_package" == "NO" ]]; then
+             echo "Aborting..."
+             break
+        fi
+        echo "Please, write \"y/yes\" or \"n/no\"."
+        continue
+        done
+    fi
