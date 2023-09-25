@@ -14,6 +14,6 @@
     fi
     echo "Ok. It will be installed in \"$INSTALL_DIR\"."
     echo "Configuring the installation..."
-    echo "${PKG_name}_install_dir=$INSTALL_DIR" >> $pkgfile_dir/pkgfile
+    echo "PKG_install_dir=$INSTALL_DIR" >> $pkgfile_dir/pkgfile
     echo "Done."    
 
