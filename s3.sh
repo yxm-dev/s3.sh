@@ -2,9 +2,9 @@
 
 # S3 FUNCTION
     function s3(){
-## Include the pkgfile
+## Includes
         source ${BASH_SOURCE%/*}/pkgfile
-## Auxiliary Function: S3_has_dir
+## Auxiliary Functions
         function S3_has_dir(){
             defined_dir="S3_dirs[$1]="
             has_defined_dir=$(grep -F "$defined_dir" $PKG_install_dir/files/bucket_dir)
@@ -14,7 +14,19 @@
                 echo "S3_dirs[$1]=$2" >> $PKG_install_dir/files/bucket_dir
             fi
         }
-## Auxiliary Function: S3_website
+        function S3_buckets_name(){
+            name_check=$(aws s3api create-bucket --bucket $1 --region $2 --create-bucket-configuration LocationConstraint=$2 /dev/null 2>&1 | grep "BucketAlreadyExists")
+            if [[ -z "$name_check" ]]; then
+                echo "error: The name \"$1\" is not available."
+                echo "Try another name."
+            else
+                aws s3api create-bucket --bucket $1 --region $2 --create-bucket-configuration LocationConstraint=$2 /dev/null 2>&1
+            fi
+        }
+        function S3_region_list(){
+            echo "The following is the list of available regions:"
+            aws ec2 describe-regions --query 'Regions[].{Name:RegionName}' --output text
+        }
         function S3_website(){
             S3_has_dir $1 $2
             cp -r $PKG_install_dir/files/website.json $2/website.json
@@ -24,7 +36,6 @@
             aws s3api put-bucket-policy --bucket $1 --policy file://$2/policy.json
             aws s3api put-object-acl --bucket $1 --key index.html --acl public-read
         }
-## Auxiliary Function: S3_push
         function S3_push(){
             mapfile -t S3_buckets < <(aws s3 ls | awk '{print $3}')
             eval "$(cat $PKG_install_dir/files/bucket_dir)"
@@ -48,7 +59,6 @@
                 echo "error: There is no bucket named \"$1\"." 
             fi
         }
-## Auxiliary Function: S3_pull
         function S3_pull(){
             mapfile -t S3_buckets < <(aws s3 ls | awk '{print $3}')
             eval "$(cat $PKG_install_dir/files/bucket_dir)"
@@ -114,16 +124,50 @@
             sh $PKG_install_dir/install/uninstall
 ### "-c" and "--create" to create a bucket
         elif [[ "$1" == "-c" ]] ||  [[ "$1" == "--create" ]]; then
-            available_bucket=$(aws s3api create-bucket --bucket $2 --region $S3_region --create-bucket-configuration LocationConstraint=$S3_region /dev/null 2>&1)
-            if [[ -z $S3_region ]]; then
-                echo "error: A region was not defined."
-                echo "Set it first with \"s3 --set-region your_region\"."
-            else
-                if [[ -z "$available_bucket" ]]; then
-                    echo "Bucket \"$2\" has been create in the region \"$S3_region\"."
+            if [[ -z "$2" ]]; then
+                echo "Enter the name of the bucket to be created."
+                while :
+                do
+                    read -r -p "> " bucket_name
+                    if [[ -n $bucket_name ]]; then
+                        if [[ -n $S3_region ]]; then
+                            echo "Enter the region in which you want to create the bucket."
+                            echo "The default region was set to \"$S3_region\". To select it just hit enter."
+                            S3_region_list
+                            read -r -p "> " bucket_region
+                            if [[ -z $bucket_region ]]; then
+                                S3_buckets_name $bucket_name $S3_region
+                            else 
+                                echo "Enter the region in which you want to create the bucket."
+                                S3_region_list
+                                while :
+                                do
+                                    read -r -p "> " bucket_region
+                                    if [[ -z $bucket_region ]]; then
+                                        echo "Please, enter a region."
+                                        continue
+                                    else
+                                        S3_buckets_name $bucket_name $bucket_region    
+                                    fi
+                                done
+                                break
+                            fi
+                        fi
+                    else
+                        echo "Please, enter a bucket name."
+                        continue
+                    fi
+                done
+            elif [[ -n $2 ]] && ([[ "$3" == "-r" ]] || [[ "$3" == "--region" ]]) && [[ -n $4 ]]; then
+                mapfile -t S3_buckets < <(aws s3 ls | awk '{print $3}')
+                if [[ "${S3_buckets[@]}" =~ "$4" ]]; then
+                    S3_buckets_name $2 $4
                 else
-                    echo "error: The bucket name \"$2\" is not available."
+                    echo "error: \"$4\" is not a valid region."
                 fi
+            elif [[ -n "$2" ]] && [[ -z "$3" ]]; then
+                echo "error: Missing region and default region not defined."
+                echo "Enter a region or set it first with \"s3 --set-region your_region\"." 
             fi
 ### "-d" and "--delete" to delete a bucket
         elif [[ "$1" == "-d" ]] || [[ "$1" == "--delete" ]]; then
@@ -138,19 +182,7 @@
         elif [[ "$1" == "-l" ]] || [[ "$1" == "--list" ]]; then
 ### "-l -b" to list buckets
             if [[ "$2" == "-b" ]] || [[ "$2" == "--buckets" ]] || [[ -z "$2" ]]; then
-                mapfile -t S3_buckets < <(aws s3 ls | awk '{print $3}')
-                mapfile -t S3_buckets_date < <(aws s3 ls | awk '{print $1}')
-                mapfile -t S3_buckets_hour < <(aws s3 ls | awk '{print $2}')
-                eval "$(cat $PKG_install_dir/files/bucket_dir)"
-                echo "The following is a list of buckets, in anti-chronological ordering, with corresponding local dir (if defined):"
-                for i in ${!S3_buckets[@]}; do
-                    bucket=${S3_buckets[$i]}
-                    if [[ -n "${S3_dirs[$bucket]}" ]]; then
-                        echo "* ${S3_buckets[$i]}, ${S3_buckets_date[$i]}, ${S3_buckets_hour[$i]} - ${S3_dirs[$bucket]}"
-                    else
-                        echo "* ${S3_buckets[$i]}, ${S3_buckets_date[$i]}, ${S3_buckets_hour[$i]}"
-                    fi
-                done
+                S3_buckets_list
 ### "-l -r" to list regions
             elif [[ "$1" == "-r" ]] || [[ "$1" == "--region" ]]; then
                 echo "The following is the list of available regions:"
@@ -223,8 +255,7 @@
         elif [[ "$1" == "-r" ]] || [[ "$1" == "--region" ]]; then
 ### "-r -l" to list available regions
             if [[ "$2" == "-l" ]] || [[ "$2" == "--list" ]]; then
-                echo "The following is the list of available regions:"
-                aws ec2 describe-regions --query 'Regions[].{Name:RegionName}' --output text
+              S3_region_list 
 ### "-r -t" to test the regions latency
             elif [[ "$2" == "-t" ]] || [[ "$2" == "--test" ]]; then
                 echo "Testing for the region with smallest latency..."
