@@ -16,7 +16,7 @@
         }
         function S3_buckets_name(){
             name_check=$(aws s3api create-bucket --bucket $1 --region $2 --create-bucket-configuration LocationConstraint=$2 /dev/null 2>&1 | grep "BucketAlreadyExists")
-            if [[ -z "$name_check" ]]; then
+            if [[ -n "$name_check" ]]; then
                 echo "error: The name \"$1\" is not available."
                 echo "Try another name."
             else
@@ -42,18 +42,14 @@
             if [[ "${S3_buckets[@]}" =~ "$1" ]]; then
                 if [[ -z "$2" ]]; then
                     if [[ -n "${S3_dirs[$1]}" ]]; then
-                        if [[ "$PWD" == "${S3_dirs[$1]}" ]]; then
-                            aws s3 sync s3://$1 ${S3_dirs[$1]} 
-                            echo "Directory \"${S3_dirs[$1]}\" was pushed to the bucket \"$1\"."
-                        else
-                            echo "error: You can only push from the directory \"{S3_dirs[$1]}\" of the bucket \"$1\". Move to it first."
-                        fi    
+                        aws s3 sync ${S3_dirs[$1]} s3://$1 
+                        echo "Directory \"${S3_dirs[$1]}\" was pushed to the bucket \"$1\"."
                     else
                         echo "error: There is no directory assigned to the bucket \"$1\"."
                         echo "Try \"aws3 -b $1 -d some_dir\" first."
                     fi
                 else
-                    echo "error: Please, provide only the bucket from which you want to pull."
+                    echo "error: Please, provide only the bucket from which you want to push."
                 fi
             else 
                 echo "error: There is no bucket named \"$1\"." 
@@ -64,13 +60,9 @@
             eval "$(cat $PKG_install_dir/files/bucket_dir)"
             if [[ "${S3_buckets[@]}" =~ "$1" ]]; then
                 if [[ -z "$2" ]]; then
-                    if [[ -n "${S3_dirs[$1]}" ]]; then
-                        if [[ "$PWD" == "${S3_dirs[$1]}" ]]; then
-                            aws s3 sync s3://$1 ${S3_dirs[$1]} 
-                            echo "Directory \"${S3_dirs[$1]}\" was pulled from the bucket \"$1\"."
-                        else
-                            echo "error: You can only pull to the directory \"{S3_dirs[$1]}\" of the bucket \"$1\". Move to it first."
-                        fi    
+                    if [[ -n "${S3_dirs[$1]}" ]]; then 
+                        aws s3 sync s3://$1 ${S3_dirs[$1]} 
+                        echo "Directory \"${S3_dirs[$1]}\" was pulled from the bucket \"$1\"."    
                     else
                         echo "error: There is no directory assigned to the bucket \"$1\"."
                         echo "Try \"aws3 -b $1 -d some_dir\" first."
@@ -128,13 +120,13 @@
                 echo "Enter the name of the bucket to be created."
                 while :
                 do
-                    read -r -p "> " bucket_name
+                    read -e -r -p "> " bucket_name
                     if [[ -n $bucket_name ]]; then
                         if [[ -n $S3_region ]]; then
                             echo "Enter the region in which you want to create the bucket."
                             echo "The default region was set to \"$S3_region\". To select it just hit enter."
                             S3_region_list
-                            read -r -p "> " bucket_region
+                            read -e -r -p "> " bucket_region
                             if [[ -z $bucket_region ]]; then
                                 S3_buckets_name $bucket_name $S3_region
                             else 
@@ -142,7 +134,7 @@
                                 S3_region_list
                                 while :
                                 do
-                                    read -r -p "> " bucket_region
+                                    read -e -r -p "> " bucket_region
                                     if [[ -z $bucket_region ]]; then
                                         echo "Please, enter a region."
                                         continue
@@ -176,7 +168,11 @@
                 aws s3api delete-bucket --bucket $2
                 echo "Bucket \"$2\" has been deleted."
             else
-                echo "error: There is no bucket with name \"$2\"."
+                if [[ -z "$2" ]]; then
+                    echo "error: bucket name was not provided".
+                else
+                    echo "error: There is no bucket with name \"$2\"."
+                fi
             fi
 ### "-l" and "--list" to list buckets or regions
         elif [[ "$1" == "-l" ]] || [[ "$1" == "--list" ]]; then
@@ -236,10 +232,10 @@
                         fi
                     fi
 ### "-b -ps" to sync files from a local directory to the given bucket
-                elif [[ "$3" == "-ps" ]] || [[ "$3" == "--push" ]]; then
+                elif [[ "$3" == "-ps" ]] || [[ "$3" == "--push" ]] || [[ "$3" == "push" ]]; then
                     S3_push $2 $4
 ### "-b -pl" to sync files from a bucket to its directory
-                elif [[ "$3" == "-pl" ]] || [[ "$3" == "--pull" ]]; then
+                elif [[ "$3" == "-pl" ]] || [[ "$3" == "--pull" ]] || [[ "$3" == "pull" ]]; then
                     S3_pull $2 $4
                 fi
             else
@@ -247,15 +243,15 @@
                 echo "Try \"aws3 -l\" to get the list of existing buckets." 
             fi
 ### "-ps" and "--push" to synchronize a given bucket with its directory
-        elif [[ "$1" == "-ps" ]] || [[ "$1" == "--push" ]]; then
+        elif [[ "$1" == "-ps" ]] || [[ "$1" == "--push" ]] || [[ "$1" == "push" ]]; then
             S3_push $2 $3
-        elif [[ "$1" == "-pl" ]] || [[ "$1" == "--pull" ]]; then
+        elif [[ "$1" == "-pl" ]] || [[ "$1" == "--pull" ]] || [[ "$1" == "pull" ]]; then
            S3_pull $2 $3 
 ### "-r" and "--region" to manage regions
         elif [[ "$1" == "-r" ]] || [[ "$1" == "--region" ]]; then
 ### "-r -l" to list available regions
             if [[ "$2" == "-l" ]] || [[ "$2" == "--list" ]]; then
-              S3_region_list 
+              S3_region_list
 ### "-r -t" to test the regions latency
             elif [[ "$2" == "-t" ]] || [[ "$2" == "--test" ]]; then
                 echo "Testing for the region with smallest latency..."
