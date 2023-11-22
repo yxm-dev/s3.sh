@@ -1,9 +1,10 @@
 #! /bin/bash
 
 # including the pkgfile
-    pkgfile_dir=$(cd ../ && pwd)
-    source $pkgfile_dir/pkgfile
-    source $pkgfile_dir/config/src/package_manager
+    MAIN_DIR=$(cd ../ && pwd)
+    source $MAIN_DIR/pkgfile
+    source $MAIN_DIR/.env
+    source $MAIN_DIR/src/pm.sh
 
 # auxiliary function: identifying the package manager
     function PKG_package_manager_check(){
@@ -79,25 +80,25 @@
     }
 # auxiliary function: installing the package
     function PKG_installing_package(){
-        if [[ -f "$PKG_install_dir/$PKG_name" ]]; then
-            echo "error: There already exists a file \"$PKG_install_dir/$PKG_name\". Change the package name in the pkgfile."
+        if [[ -f "$INSTALL_DIR/$PKG_name" ]]; then
+            echo "error: There already exists a file \"$INSTALL_DIR/$PKG_name\". Change the package name in the pkgfile."
             exit 1
-        elif [[ -d "$PKG_install_dir/$PKG_name" ]]; then
-            echo "error: There already exists a directory \"$PKG_install_dir/$PKG_name\". Change the package name in the pkgfile."
+        elif [[ -d "$INSTALL_DIR/$PKG_name" ]]; then
+            echo "error: There already exists a directory \"$INSTALL_DIR/$PKG_name\". Change the package name in the pkgfile."
             exit 1
         else
             PKG_starting_dir=$(cd ../ && pwd)
-            echo "Copying the files from \"$PKG_starting_dir\" to \"$PKG_install_dir\"..."
-            sudo cp -r $PKG_starting_dir $PKG_install_dir
+            echo "Copying the files from \"$PKG_starting_dir\" to \"$INSTALL_DIR\"..."
+            sudo cp -r $PKG_starting_dir $INSTALL_DIR
     
             echo "Configuring \"$PKG_name.sh\" file..."
-            sed -i "s/PKG_name/$PKG_name/g" ${PKG_install_dir}/${PKG_name}
+            sed -i "s/PKG_name/$PKG_name/g" ${INSTALL_DIR}/${PKG_name}
             
             echo "Configuring the help.txt file..."
-            sed -i "s/PKG_name/$PKG_name/g" ${PKG_install_dir}/config/help.txt
+            sed -i "s/PKG_name/$PKG_name/g" ${INSTALL_DIR}/config/help.txt
 
             echo "Concluding the installation..."
-            printf "if [[ -f $PKG_install_dir/$PKG_name ]]; then \nsource $PKG_install_dir/$PKG_name \nfi\n" >> $HOME/.bashrc
+            printf "if [[ -f $INSTALL_DIR/$PKG_name ]]; then \nsource $INSTALL_DIR/$PKG_name \nfi\n" >> $HOME/.bashrc
         fi
     }
 # auxiliary function: custom installation steps
@@ -109,7 +110,7 @@
 
 # INSTALLATION SCRIPT
     printf "Welcome to the installation of the package \"$PKG_name\". \n\n"
-    if [[ -z "$PKG_install_dir" ]]; then
+    if [[ -z "$INSTALL_DIR" ]]; then
         echo "error: Installation directory not defined. Please, execute \"./configure\" first."
     else
 ## identifying the package manager
@@ -149,13 +150,13 @@
             fi
         else
 ## installing dependencies
-            echo "\"$distro_name\" based distributions identified in the pkgfile..."
+            echo "\"$PKG_distro_name\" based distributions identified in the pkgfile..."
             PKG_installing_basic_dependencies
             PKG_installing_custom_dependencies
 ## installing the package
             PKG_installing_custom_steps
             PKG_installing_package
-            printf "\nThe installation of the package \"$PKG_name\"  was finished:\n* Try \"$PKG_name --help\" to get more information on its usage.\n* To uninstall it use \"$PKG_name --uninstall\" or execute the script \"$installdir/install/uninstall\".\n"
+            printf "\nThe installation of the package \"$PKG_name\"  was finished:\n* Try \"$PKG_name --help\" to get more information on its usage.\n* To uninstall it execute the script \"$INSTALL_DIR/install/uninstall\".\n"
         fi
     fi
 

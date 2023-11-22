@@ -1,19 +1,19 @@
 #! /bin/bash
 
 # including the pkgfile
-    pkgfile_dir=$(cd ../ && pwd)
-    source $pkgfile_dir/pkgfile
+    MAIN_DIR=$(cd ../ && pwd)
+    source $MAIN_DIR/pkgfile
 
     echo "Welcome come to the configuration step in the installation of \"$PKG_name\"."
     printf "\nWhere do you want to install it? \nThe default location is \"$HOME/.config/$PKG_name\". To set it, just hit enter.\n"
-    read -r -e -p "> " install_dir
-    if [[ -z $install_dir ]]; then
+    read -r -e -p "> " INSTALL_DIR
+    if [[ -z $INSTALL_DIR ]]; then
         INSTALL_DIR=$HOME/.config/$PKG_name
     else
-        INSTALL_DIR=$install_dir
+        INSTALL_DIR=$INSTALL_DIR
     fi
     echo "Ok. It will be installed in \"$INSTALL_DIR\"."
     echo "Configuring the installation..."
-    echo "PKG_install_dir=$INSTALL_DIR" >> $pkgfile_dir/pkgfile
+    echo "INSTALL_DIR=$INSTALL_DIR" >> $MAIN_DIR/pkgfile
     echo "Done."    
 
